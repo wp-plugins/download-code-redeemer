@@ -25,6 +25,9 @@ function dcr_install () {
 				`ID` MEDIUMINT( 11 ) NOT NULL AUTO_INCREMENT ,
 				`name` VARCHAR( 200 ) NOT NULL ,
 				`description` LONGTEXT NOT NULL ,
+				`labeltext` VARCHAR( 200 ) NOT NULL ,
+				`successtext` LONGTEXT NOT NULL ,
+				`failtext` LONGTEXT NOT NULL ,
 				`url` LONGTEXT NOT NULL ,
 				PRIMARY KEY (  `ID` ) ,
 				INDEX (  `ID` )
@@ -61,6 +64,9 @@ function dcr_install () {
 				`ID` MEDIUMINT( 11 ) NOT NULL AUTO_INCREMENT ,
 				`name` VARCHAR( 200 ) NOT NULL ,
 				`description` LONGTEXT NOT NULL ,
+				`labeltext` VARCHAR( 200 ) NOT NULL ,
+				`successtext` LONGTEXT NOT NULL ,
+				`failtext` LONGTEXT NOT NULL ,
 				`url` LONGTEXT NOT NULL ,
 				PRIMARY KEY (  `ID` ) ,
 				INDEX (  `ID` )
@@ -123,6 +129,13 @@ function countRedeemedCodes($batchID) {
 	$count = $wpdb->get_var("SELECT COUNT(*) FROM {$dcr_codes_table} WHERE is_used='1' AND batchID='{$batchID}'");
 	return $count;
 }
+function getDownload($downloadID) {
+	global $wpdb;
+	$downloadID = $wpdb->prepare($downloadID);
+	$dcr_downloads_table = $wpdb->prefix . "dcr_downloads";
+	$download = $wpdb->get_var("SELECT url FROM {$dcr_downloads_table} WHERE ID = '{$downloadID}'");
+	return $download;
+}
 function exportToCSV() {
 
 	if( isset( $_GET["id"] ) AND isset( $_GET["batch"] ) AND ( $_GET["export"] == "csv" ) ) {
@@ -153,6 +166,31 @@ function dcr_stylesheet() {
 		wp_enqueue_style( 'dcr-styles');
 	}
 }
+function returnDownloadData($downloadID) {
+	global $wpdb;
+	$downloadID = $wpdb->prepare($downloadID);
+	$dcr_downloads_table = $wpdb->prefix . "dcr_downloads";
+	$download = $wpdb->get_row("SELECT * FROM {$dcr_downloads_table} WHERE ID = '{$downloadID}'");
+	return $download;
+}
+function redeemCode() {
+	
+	if( !empty( $_POST["did"] ) AND !empty( $_POST["code"] ) AND is_numeric( $_POST["did"] ) ) {
+	
+		global $wpdb;
+		$code = $wpdb->prepare( $_POST["code"] );
+		$did = $wpdb->prepare( $_POST["did"] );
+		$dcr_codes_table = $wpdb->prefix . "dcr_codes";
+		$match = $wpdb->get_row("SELECT * FROM {$dcr_codes_table} WHERE downloadID = '{$did}' AND code = '{$code}' AND is_used='0' LIMIT 1");
+		if( !empty($match) ) {
+		
+			HEADER("Location: " . getDownload($match->downloadID) );
+		
+		}
+	
+	}
+	
+}
 
 ####################################################################
 #
@@ -161,15 +199,35 @@ function dcr_stylesheet() {
 ####################################################################
 function show_redeemer( $atts ) {
 	
-	global $wpdb;
+	$download = returnDownloadData( $atts["download"] );
 	
 	if( !empty( $_POST["code"] ) ) {
-	
+		
+		global $wpdb;
+		$code = $wpdb->prepare( $_POST["code"] );
+		$dcr_codes_table = $wpdb->prefix . "dcr_codes";
+		$match = $wpdb->get_row("SELECT * FROM {$dcr_codes_table} WHERE downloadID = '{$atts["download"]}' AND code = '{$code}' AND is_used='0'");
+		if( empty($match) ) {
+		
+			echo "<p>" . $download->failtext . "</p>";
+		
+		} else {
+		
+			if( $match->is_unlimited == 0 ) {
+			
+				$wpdb->update( $dcr_codes_table, array( 'is_used'=>1 ), array( 'code'=>$code ) );
+			
+			}
+			echo "<p>" . $download->successtext . "</p>";
+			
+		}
+		
 	} else {
 	?>
 	<form method="post" action="<?php echo $_SERVER["REQUEST_URI"]; ?>" id="dcr-form">
-		<label for="code">Please enter your code here:</label>
+		<label for="code"><?php echo $download->labeltext; ?></label>
 		<input type="text" name="code" id="code" />
+		<input type="hidden" name="did" id="did" value="<?php echo $atts["download"]; ?>" />
 		<button type="submit">Redeem</button>
 	</form>
 	<?php
@@ -184,6 +242,7 @@ add_shortcode( 'redeemer', 'show_redeemer' );
 #
 ####################################################################
 add_action('init', 'exportToCSV');
+add_action('init', 'redeemCode');
 wp_enqueue_style('dcr', plugins_url('download-code-redeemer/assets/css/dcr.css'), false, $dcr_db_version, 'all');
 
 ####################################################################
@@ -357,8 +416,21 @@ function dcr_overview() {
 			$dcr_name = $wpdb->prepare( $_POST["dcr-name"] );
 			$dcr_url = $wpdb->prepare( $_POST["dcr-url"] );
 			$dcr_description = $wpdb->prepare( $_POST["dcr-description"] );
+			$dcr_labeltext = $wpdb->prepare( $_POST["dcr-labeltext"] );
+			$dcr_successtext = $wpdb->prepare( $_POST["dcr-successtext"] );
+			$dcr_failtext = $wpdb->prepare( $_POST["dcr-failtext"] );
 			$dcr_downloads_table = $wpdb->prefix . "dcr_downloads";
-			$wpdb->insert( $dcr_downloads_table, array( 'name'=>$dcr_name , 'description'=>$dcr_description , 'url'=>$dcr_url ) );
+			$wpdb->insert( 
+				$dcr_downloads_table, 
+				array( 
+					'name'=>$dcr_name , 
+					'description'=>$dcr_description , 
+					'labeltext'=>$dcr_labeltext , 
+					'successtext'=>$dcr_successtext , 
+					'failtext'=>$dcr_failtext , 
+					'url'=>$dcr_url 
+				) 
+			);
 			echo "<div id=\"message\" class=\"updated below-h2\"><p>The download, <strong>{$_POST["dcr-name"]}</strong>, has been created.</p></div>";
 		}
 		
@@ -434,6 +506,24 @@ function dcr_overview() {
 		echo "<label for=\"dcr-description\">Description</label>";
 		echo "<textarea name=\"dcr-description\" id=\"dcr-description\" rows=\"5\" cols=\"40\"></textarea>";
 		echo "<p>The description is not prominent by default; however, it may make it easier for you to manage your downloads.</p>";
+		echo "</div>";
+		
+		echo "<div class=\"form-field\">";
+		echo "<label for=\"dcr-labeltext\">Label text</label>";
+		echo "<input name=\"dcr-labeltext\" id=\"dcr-labeltext\" type=\"text\" size=\"40\" aria-required=\"true\">";
+		echo "<p>The text that goes on the form label, where users will enter their redemption code.</p>";
+		echo "</div>";
+		
+		echo "<div class=\"form-field\">";
+		echo "<label for=\"dcr-successtext\">Success Text</label>";
+		echo "<textarea name=\"dcr-successtext\" id=\"dcr-successtext\" rows=\"5\" cols=\"40\"></textarea>";
+		echo "<p>This is the congratulatory text for succesful redemptions.</p>";
+		echo "</div>";
+		
+		echo "<div class=\"form-field\">";
+		echo "<label for=\"dcr-failtext\">Failure Text</label>";
+		echo "<textarea name=\"dcr-failtext\" id=\"dcr-failtext\" rows=\"5\" cols=\"40\"></textarea>";
+		echo "<p>This text is what is shown when someone enters an invalid code, whether it's already been used or it simply doesn't exist.</p>";
 		echo "</div>";
 		
 		echo "<p class=\"submit\"><input type=\"submit\" name=\"submit\" id=\"submit\" class=\"button\" value=\"Add New Download\"></p>";
