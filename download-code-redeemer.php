@@ -114,7 +114,7 @@ register_deactivation_hook(__FILE__,'dcr_uninstall');
 # MISC SUPPORT FUNCTIONS
 #
 ####################################################################
-function genRandomString() {
+function dcrRandomString() {
     $length = 10;
     $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
     $string = "";    
@@ -281,7 +281,7 @@ function dcr_overview() {
 						
 			while($i < $amount) {
 			
-				$code = genRandomString();
+				$code = dcrRandomString();
 				$does_code_exist = $wpdb->get_var("SELECT COUNT(ID) FROM {$dcr_codes_table} WHERE code ='{$code}' LIMIT 1");
 				if( $does_code_exist == 0 ) {
 					$wpdb->insert( $dcr_codes_table, array( 'downloadID'=>$downloadID , 'is_unlimited'=>$type , 'code'=>$code , 'batchID'=>$batchID ) );
