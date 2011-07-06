@@ -176,21 +176,42 @@ function returnDownloadData($downloadID) {
 function redeemCode() {
 	
 	if( !empty( $_POST["did"] ) AND !empty( $_POST["code"] ) AND is_numeric( $_POST["did"] ) ) {
-	
+		
 		global $wpdb;
 		$code = $wpdb->prepare( $_POST["code"] );
 		$did = $wpdb->prepare( $_POST["did"] );
 		$dcr_codes_table = $wpdb->prefix . "dcr_codes";
-		$match = $wpdb->get_row("SELECT * FROM {$dcr_codes_table} WHERE downloadID = '{$did}' AND code = '{$code}' AND is_used='0' LIMIT 1");
-		if( !empty($match) ) {
+		$match = $wpdb->get_row("SELECT * FROM {$dcr_codes_table} WHERE downloadID = '{$did}' AND code = '{$code}' AND is_used='0'");
+		if( empty($match) ) {
 		
-			HEADER("Location: " . getDownload($match->downloadID) );
+			wp_redirect( $_SERVER["REQUEST_URI"] . "?success=0" );
+			exit;
 		
+		} else {
+		
+			if( $match->is_unlimited == 0 ) {
+			
+				$wpdb->update( $dcr_codes_table, array( 'is_used'=>1 ), array( 'code'=>$code ) );
+			
+			}
+			
+			header("Location: " .  getDownload($match->downloadID) );
+			exit;
+			
 		}
 	
 	}
 	
 }
+
+####################################################################
+#
+# ACTION PLUGS
+#
+####################################################################
+add_action('init', 'exportToCSV');
+add_action('init', 'redeemCode');
+wp_enqueue_style('dcr', plugins_url('download-code-redeemer/assets/css/dcr.css'), false, $dcr_db_version, 'all');
 
 ####################################################################
 #
@@ -200,28 +221,15 @@ function redeemCode() {
 function show_redeemer( $atts ) {
 	
 	$download = returnDownloadData( $atts["download"] );
-	
-	if( !empty( $_POST["code"] ) ) {
-		
-		global $wpdb;
-		$code = $wpdb->prepare( $_POST["code"] );
-		$dcr_codes_table = $wpdb->prefix . "dcr_codes";
-		$match = $wpdb->get_row("SELECT * FROM {$dcr_codes_table} WHERE downloadID = '{$atts["download"]}' AND code = '{$code}' AND is_used='0'");
-		if( empty($match) ) {
-		
+	if( isset( $_GET["success"] ) ) {
+		switch($_GET["success"]) {
+		case '0':
 			echo "<p>" . $download->failtext . "</p>";
-		
-		} else {
-		
-			if( $match->is_unlimited == 0 ) {
-			
-				$wpdb->update( $dcr_codes_table, array( 'is_used'=>1 ), array( 'code'=>$code ) );
-			
-			}
+		break;
+		case '1':
 			echo "<p>" . $download->successtext . "</p>";
-			
+		break;
 		}
-		
 	} else {
 	?>
 	<form method="post" action="<?php echo $_SERVER["REQUEST_URI"]; ?>" id="dcr-form">
@@ -235,15 +243,6 @@ function show_redeemer( $atts ) {
 		
 }
 add_shortcode( 'redeemer', 'show_redeemer' );
-
-####################################################################
-#
-# ACTION PLUGS
-#
-####################################################################
-add_action('init', 'exportToCSV');
-add_action('init', 'redeemCode');
-wp_enqueue_style('dcr', plugins_url('download-code-redeemer/assets/css/dcr.css'), false, $dcr_db_version, 'all');
 
 ####################################################################
 #
