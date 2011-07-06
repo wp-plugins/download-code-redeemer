@@ -33,12 +33,13 @@ function dcr_install () {
 		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 		dbDelta($sql);
 	}
-	
+		
 	$table_name = $wpdb->prefix . "dcr_codes";
 	if($wpdb->get_var("show tables like '$table_name'") != $table_name) {
 		$sql = "CREATE TABLE " . $table_name . " (
 				`ID` MEDIUMINT( 11 ) NOT NULL AUTO_INCREMENT ,
 				`downloadID` MEDIUMINT( 11 ) NOT NULL ,
+				`batchID` MEDIUMINT( 11 ) NOT NULL ,
 				`is_used` BINARY( 1 ) NULL DEFAULT  '0',
 				`is_unlimited` BINARY( 1 ) NULL DEFAULT  '0',
 				`code` VARCHAR( 20 ) NOT NULL ,
@@ -70,11 +71,10 @@ function dcr_install () {
 		
 		$table_name = $wpdb->prefix . "dcr_codes";
 		$sql = "CREATE TABLE " . $table_name . " (
-				`ID` MEDIUMINT( 11 ) NOT NULL AUTO_INCREMENT ,
-				`downloadID` MEDIUMINT( 11 ) NOT NULL ,
-				`is_used` BINARY( 1 ) NULL DEFAULT  '0',
-				`is_unlimited` BINARY( 1 ) NULL DEFAULT  '0',
-				`code` VARCHAR( 20 ) NOT NULL ,
+				`ID` MEDIUMINT( 11 ) NOT NULL AUTO_INCREMENT PRIMARY KEY ,
+				`code` VARCHAR( 50 ) NOT NULL ,
+				`ip` VARCHAR( 50 ) NOT NULL ,
+				`timestamp` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 				PRIMARY KEY (  `ID` ) ,
 				INDEX (  `ID` )
 		);";
@@ -84,7 +84,6 @@ function dcr_install () {
 
 		update_option( "dcr_db_version", $dcr_db_version );
 	  }
-	  update_option("dcr-language","en");
 }
 register_activation_hook(__FILE__,'dcr_install');
 
@@ -98,10 +97,94 @@ function dcr_uninstall() {
 	
 	$wpdb->query('DROP TABLE IF EXISTS ' . $wpdb->prefix . 'dcr_downloads;');
 	$wpdb->query('DROP TABLE IF EXISTS ' . $wpdb->prefix . 'dcr_codes;');
+	$wpdb->query('DROP TABLE IF EXISTS ' . $wpdb->prefix . 'dcr_log;');
 
 	delete_option("dcr_db_version");
 }
 register_deactivation_hook(__FILE__,'dcr_uninstall');
+
+####################################################################
+#
+# MISC SUPPORT FUNCTIONS
+#
+####################################################################
+function genRandomString() {
+    $length = 10;
+    $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $string = "";    
+    for ($p = 0; $p < $length; $p++) {
+        $string .= $characters[mt_rand(0, strlen($characters))];
+    }
+    return $string;
+}
+function countRedeemedCodes($batchID) {
+	global $wpdb;
+	$dcr_codes_table = $wpdb->prefix . "dcr_codes";
+	$count = $wpdb->get_var("SELECT COUNT(*) FROM {$dcr_codes_table} WHERE is_used='1' AND batchID='{$batchID}'");
+	return $count;
+}
+function exportToCSV() {
+
+	if( isset( $_GET["id"] ) AND isset( $_GET["batch"] ) AND ( $_GET["export"] == "csv" ) ) {
+	
+		global $wpdb;
+		$wpdb->show_errors();
+		header("Content-type:text/octect-stream");
+    	header("Content-Disposition:attachment;filename=export.csv");
+		
+		$dcr_codes_table = $wpdb->prefix . "dcr_codes";
+		$downloadID = $wpdb->prepare($_GET["id"]);
+		$batchID = $wpdb->prepare($_GET["batch"]);
+		$codes = $wpdb->get_results("SELECT code FROM {$dcr_codes_table} WHERE downloadID = '{$downloadID}' AND batchID = '{$batchID}'");
+	
+		foreach($codes as $code) {
+		
+			echo '"' . $code->code . "\"\n";
+		
+		}
+    	exit;
+    }
+}
+function dcr_stylesheet() {
+	$myStyleUrl = WP_PLUGIN_URL . '/assets/css/dcr.css';
+	$myStyleFile = WP_PLUGIN_DIR . '/assets/css/dcr.css';
+	if ( file_exists($myStyleFile) ) {
+		wp_register_style('dcr-styles', $myStyleUrl);
+		wp_enqueue_style( 'dcr-styles');
+	}
+}
+
+####################################################################
+#
+# SHORTCODE
+#
+####################################################################
+function show_redeemer( $atts ) {
+	
+	global $wpdb;
+	
+	if( !empty( $_POST["code"] ) ) {
+	
+	} else {
+	?>
+	<form method="post" action="<?php echo $_SERVER["REQUEST_URI"]; ?>" id="dcr-form">
+		<label for="code">Please enter your code here:</label>
+		<input type="text" name="code" id="code" />
+		<button type="submit">Redeem</button>
+	</form>
+	<?php
+	}
+		
+}
+add_shortcode( 'redeemer', 'show_redeemer' );
+
+####################################################################
+#
+# ACTION PLUGS
+#
+####################################################################
+add_action('init', 'exportToCSV');
+wp_enqueue_style('dcr', plugins_url('download-code-redeemer/assets/css/dcr.css'), false, $dcr_db_version, 'all');
 
 ####################################################################
 #
@@ -124,6 +207,46 @@ function dcr_overview() {
 		$download = $wpdb->get_row("SELECT * FROM {$dcr_downloads_table} WHERE ID = '{$downloadID}'");
 		echo "<div id=\"icon-edit\" class=\"icon32\"><br></div><h2><a href=\"/wp-admin/admin.php?page=dcr\">DCR</a> &raquo; {$download->name}</h2>";
 		
+		if( $_POST["flash"]=="thunder" ) {
+		
+			$i = 0;
+			$amount = $wpdb->prepare( $_POST["dcr-amount"] );
+			$type = $wpdb->prepare( $_POST["dcr-code-type"] );
+			$downloadID = $wpdb->prepare( $_GET["id"] );
+			$dcr_codes_table = $wpdb->prefix . "dcr_codes";
+			$batchID = $wpdb->get_var("SELECT batchID FROM {$dcr_codes_table} WHERE downloadID ='{$downloadID}' ORDER BY batchID DESC LIMIT 1");
+			if( empty($batchID) ) {
+				$batchID = 1;
+			} else {
+				$batchID++;
+			}
+						
+			while($i < $amount) {
+			
+				$code = genRandomString();
+				$does_code_exist = $wpdb->get_var("SELECT COUNT(ID) FROM {$dcr_codes_table} WHERE code ='{$code}' LIMIT 1");
+				if( $does_code_exist == 0 ) {
+					$wpdb->insert( $dcr_codes_table, array( 'downloadID'=>$downloadID , 'is_unlimited'=>$type , 'code'=>$code , 'batchID'=>$batchID ) );
+					$i++;
+				}
+			
+			}
+			
+			echo "<div id=\"message\" class=\"updated below-h2\"><p><strong>{$i}</strong> new download codes have been created.</p></div>";	
+		
+		}
+		if( isset( $_GET["id"] ) AND isset( $_GET["batch"] ) AND ( $_GET["batchaction"] == "delete" ) ) {
+	
+			global $wpdb;
+			$dcr_codes_table = $wpdb->prefix . "dcr_codes";
+			$downloadID = $wpdb->prepare($_GET["id"]);
+			$batchID = $wpdb->prepare($_GET["batch"]);
+			$wpdb->get_results("DELETE FROM {$dcr_codes_table} WHERE downloadID = '{$downloadID}' AND batchID = '{$batchID}'");
+			
+			echo "<div id=\"message\" class=\"updated below-h2\"><p>A batch of codes has been deleted.</p></div>";	
+			
+    	}
+		
 		echo "<h3>Add New Download Codes</h3>";
 		echo "<form method=\"post\" action=\"" . $_SERVER["REQUEST_URI"] . "\">";
 		echo "<table class=\"form-table\">";
@@ -143,6 +266,7 @@ function dcr_overview() {
 		echo "        <option value=\"100\">100</option>";
 		echo "        <option value=\"500\">500</option>";
 		echo "        <option value=\"1000\">1.000</option>";
+		echo "        <option value=\"5000\">5.000</option>";
 		echo "        <option value=\"10000\">10.000</option>";
 		echo "      </select></td>";
 		echo "    </tr>";
@@ -150,7 +274,7 @@ function dcr_overview() {
 		echo "      <th scope=\"row\"><label for=\"dcr-code-type\">Type:</label></th>";
 		echo "      <td><fieldset>";
 		echo "        <label><input name=\"dcr-code-type\" type=\"radio\" id=\"dcr-code-type\" value=\"1\"> <span>Unlimited uses</span></label><br />";
-		echo "        <label><input name=\"dcr-code-type\" type=\"radio\" id=\"dcr-code-type\" value=\"1\"> <span>Single use</span></label>";
+		echo "        <label><input name=\"dcr-code-type\" type=\"radio\" id=\"dcr-code-type\" value=\"0\"> <span>Single use</span></label>";
 		echo "      </fieldset></td>";
 		echo "    </tr>";
 		echo "  </tbody>";
@@ -181,13 +305,38 @@ function dcr_overview() {
 
 		echo "  <tbody id=\"the-list\">";
 		$dcr_codes_table = $wpdb->prefix . "dcr_codes";
-		$codes = $wpdb->get_results("SELECT COUNT(*) as cnt FROM {$dcr_codes_table} WHERE downloadID = '{$downloadID}' GROUP BY batchID");
-		echo "    <tr class=\"alternate author-self status-publish format-default iedit\" valign=\"top\">";
-		echo "      <th scope=\"row\" class=\"check-column\"></th>";
-		echo "      <td class=\"column-title\"></td>";
-		echo "      <td class=\"column-title\"></td>";
-		echo "      <td class=\"column-title\"></td>";
-		echo "    </tr>";
+		$batchcount = $wpdb->get_var("SELECT COUNT(*) FROM {$dcr_codes_table} WHERE downloadID = '{$downloadID}'");
+		if( $batchcount == 0 ) {
+	
+			echo "    <tr valign=\"top\">";
+			echo "      <th scope=\"row\" class=\"check-column\"></th>";
+			echo "      <td class=\"column-title\" colspan=\"3\">No codes have been created for this download.</td>";
+			echo "    </tr>";
+		
+		} else {
+			
+			$codes = $wpdb->get_results("SELECT *,COUNT(*) as cnt FROM {$dcr_codes_table} WHERE downloadID = '{$downloadID}' GROUP BY batchID");
+			foreach($codes as $code) {
+			
+				echo "    <tr class=\"alternate author-self status-publish format-default iedit\" valign=\"top\">";
+				echo "      <th scope=\"row\" class=\"check-column\"></th>";
+				echo "      <td class=\"column-title\">";
+				if( $code->is_unlimited == 0 ){
+					echo "        <strong>Single use</strong><br />";
+				} else {
+					echo "        <strong>Unlimited use</strong><br />";
+				}
+				echo "       <a href=\"" . $_SERVER["REQUEST_URI"] . "&export=csv&batch=" . $code->batchID . "\">Export as CSV</a> | <a href=\"" . $_SERVER["REQUEST_URI"] . "&batchaction=delete&batch=" . $code->batchID . "\">Delete</a>";
+				echo "      </td>";
+				
+				echo "      <td class=\"column-title\">" . $code->cnt . "</td>";
+				echo "      <td class=\"column-title\">" . countRedeemedCodes($code->batchID) . "</td>";
+				echo "    </tr>";
+			
+			}
+
+		}
+		
 		echo "  </tbody>";
 		echo "</table>";
 	
@@ -222,34 +371,35 @@ function dcr_overview() {
 		echo "<table class=\"wp-list-table widefat fixed tags\" cellspacing=\"0\">";
 		echo "<thead>";
 		echo "<tr>";
-		echo "<th scope=\"col\" id=\"name\" class=\"manage-column check-column desc\"></th>";
+		echo "<th scope=\"col\" id=\"id\" width=\"5%\" class=\"manage-column column-name desc\">ID</th>";
 		echo "<th scope=\"col\" id=\"name\" class=\"manage-column column-name desc\">Download</th>";
-		echo "<th scope=\"col\" id=\"description\" class=\"manage-column column-description desc\">Codes</th>";
+		echo "<th scope=\"col\" id=\"description\" class=\"manage-column column-description desc\">Options</th>";
 		echo "</tr>";
 		echo "</thead>";
 	
 		echo "<tfoot>";
 		echo "<tr>";
-		echo "<th scope=\"col\" id=\"name\" class=\"manage-column check-column desc\"></th>";
+		echo "<th scope=\"col\" id=\"id\" class=\"manage-column column-name desc\">ID</th>";
 		echo "<th scope=\"col\" id=\"name\" class=\"manage-column column-name desc\">Download</th>";
-		echo "<th scope=\"col\" id=\"description\" class=\"manage-column column-description desc\">Codes</th>";
+		echo "<th scope=\"col\" id=\"description\" class=\"manage-column column-description desc\">Options</th>";
 		echo "</tfoot>";
 	
 		echo "<tbody id=\"the-list\" class=\"list:tag\">";
 		
 		global $wpdb;
 		$dcr_downloads_table = $wpdb->prefix . "dcr_downloads";
-		$downloads = $wpdb->get_results("SELECT ID, name FROM {$dcr_downloads_table} ORDER BY name ASC");
+		$downloads = $wpdb->get_results("SELECT ID, name, description, url FROM {$dcr_downloads_table} ORDER BY name ASC");
 		foreach($downloads as $download) {
 		echo "<tr id=\"tag-1\" class=\"\">";
-		echo "  <td class=\"name check-column\"></td>";
-		echo "  <td class=\"description column-description\"><strong>" . $download->name . "</strong><br /><a href=\"" . $_SERVER["REQUEST_URI"] . "&action=manage&id=" . $download->ID . "\">Manage</a> | <a href=\"" . $_SERVER["REQUEST_URI"] . "&action=delete&id=" . $download->ID . "\">Delete</a></td>";
+		echo "  <td class=\"name column-description\">" . $download->ID . "</td>";
 		echo "  <td class=\"description column-description\">";
-		$dcr_codes_table = $wpdb->prefix . "dcr_codes";
-		$codes = $wpdb->get_results("SELECT COUNT(*) as cnt FROM {$dcr_codes_table} WHERE downloadID = '{$download->ID}' GROUP BY is_unlimited");
-		foreach($codes as $code) {
-		echo "    ";
-		}
+		echo "    <strong>" . $download->name . "</strong><br />";
+		echo "    <small><a href=\"" . $download->url . "\">" . $download->url . "</a></small><br />";
+		echo "    {$download->description}";
+		echo "  </td>";
+		echo "  <td class=\"description column-description\">";
+		echo "    <a href=\"" . $_SERVER["REQUEST_URI"] . "&action=manage&id=" . $download->ID . "\">Manage</a> | ";
+		echo "    <a href=\"" . $_SERVER["REQUEST_URI"] . "&action=delete&id=" . $download->ID . "\">Delete</a>";
 		echo "  </td>";
 		echo "</tr>";
 		}
