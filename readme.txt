@@ -4,7 +4,7 @@ Donate link: http://tmertz.com/projects/download-code-redeemer
 Tags: download, code, redeemer, redemption, token, url, file
 Requires at least: 3.1
 Tested up to: 3.2
-Stable tag: 1.0.1
+Stable tag: 1.1
 
 Simple plugin that enables you to add unlimited use, or single-use download codes for your site.
 
@@ -14,6 +14,8 @@ Download Code Redeemer is a plugin that enables you to have downloads hidden awa
 User gets a code, enters it on your website, and the plugin starts a download.
 
 You can create two kinds of codes - single use codes and unlimited use codes.
+
+Download Codes are output as a downloadable CSV file, which makes it very easy to send to printshops for adding to cards or the like.
 
 == Installation ==
 
@@ -25,8 +27,18 @@ You can create two kinds of codes - single use codes and unlimited use codes.
 
 None.
 
+== Screenshots ==
+
+1. Download code management
+2. Output of the form in a theme
+3. Main management window (where you create downloads)
+4. Shortcode in WordPress' editor
 
 == Changelog ==
+
+= 1.1 =
+* Fixed an error that made users unable to delete downloads.
+* Added screenshots
 
 = 1.0.1 =
 * Small tweak to a wee bit of code.

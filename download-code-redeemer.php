@@ -3,12 +3,12 @@
 Plugin Name: Download Code Redeemer
 Plugin URI: http://tmertz.com/projects/download-code-redeemer/
 Description: A simple plugin designed to make it easy for you to provide download codes for special downloads on your website.
-Version: 1.0
+Version: 1.1
 Author: Thomas Mertz
 Author URI: http://tmertz.com/
 */
 
-$dcr_db_version = "1.0";
+$dcr_db_version = "1.1";
 
 ####################################################################
 #
@@ -103,7 +103,6 @@ function dcr_uninstall() {
 	
 	$wpdb->query('DROP TABLE IF EXISTS ' . $wpdb->prefix . 'dcr_downloads;');
 	$wpdb->query('DROP TABLE IF EXISTS ' . $wpdb->prefix . 'dcr_codes;');
-	$wpdb->query('DROP TABLE IF EXISTS ' . $wpdb->prefix . 'dcr_log;');
 
 	delete_option("dcr_db_version");
 }
@@ -405,6 +404,15 @@ function dcr_overview() {
 		$dcr_downloads_table = $wpdb->prefix . "dcr_downloads";
 		$download = $wpdb->get_row("SELECT * FROM {$dcr_downloads_table} WHERE ID = '{$downloadID}'");
 		echo "<div id=\"icon-edit\" class=\"icon32\"><br></div><h2>Delete {$download->name}</h2>";
+		echo "<form method=\"post\" action=\"/wp-admin/admin.php?page=dcr\">";
+		echo "<input type=\"hidden\" name=\"deleteDownload\" value=\"yes\" />";
+		echo "<input type=\"hidden\" name=\"downloadID\" value=\"" . $_GET["id"] . "\" />";
+		echo "<p><strong>Are you absolutely sure you want to delete this download?</strong> Remember, this will delete both the download and all generated codes.</p>";
+		echo "<p><strong>Note:</strong> The download reference will only be removed. You must manually pull the file offline.</p>";
+		echo "<p class=\"submit\">";
+		echo "<input type=\"submit\" name=\"submit\" id=\"submit\" class=\"button\" value=\"Delete\">";
+		echo " <a href=\"#\" onclick=\"window.history.go(-1);return false;\">No, I changed my mind</a>";
+		echo "</p></form>";
 	
 	} else {
 	
@@ -431,6 +439,17 @@ function dcr_overview() {
 				) 
 			);
 			echo "<div id=\"message\" class=\"updated below-h2\"><p>The download, <strong>{$_POST["dcr-name"]}</strong>, has been created.</p></div>";
+		}
+		if( $_POST["deleteDownload"] == "yes" AND is_numeric( $_POST["downloadID"] ) ) {
+		
+			global $wpdb;
+			$downloadID = $wpdb->prepare( $_POST["downloadID"] );
+			$dcr_downloads_table = $wpdb->prefix . "dcr_downloads";
+			$wpdb->get_results("DELETE FROM {$dcr_downloads_table} WHERE ID = '{$downloadID}'");
+			$dcr_codes_table = $wpdb->prefix . "dcr_codes";
+			$wpdb->get_results("DELETE FROM {$dcr_codes_table} WHERE downloadID = '{$downloadID}'");
+			echo "<div id=\"message\" class=\"updated below-h2\"><p>The download was succesfully deleted.</p></div>";
+		
 		}
 		
 		echo "<div id=\"col-container\">";
