@@ -223,10 +223,10 @@ function show_redeemer( $atts ) {
 	if( isset( $_GET["success"] ) ) {
 		switch($_GET["success"]) {
 		case '0':
-			echo "<p>" . $download->failtext . "</p>";
+			echo "<p>" . stripslashes( $download->failtext ) . "</p>";
 		break;
 		case '1':
-			echo "<p>" . $download->successtext . "</p>";
+			echo "<p>" . stripslashes( $download->successtext ) . "</p>";
 		break;
 		}
 	} else {
