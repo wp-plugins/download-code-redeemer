@@ -4,7 +4,7 @@ Donate link: http://tmertz.com/projects/download-code-redeemer
 Tags: download, code, redeemer, redemption, token, url, file
 Requires at least: 3.1
 Tested up to: 3.2
-Stable tag: 1.1
+Stable tag: 1.1.1
 
 Simple plugin that enables you to add unlimited use, or single-use download codes for your site.
 
@@ -42,6 +42,9 @@ None.
 4. Shortcode in WordPress' editor
 
 == Changelog ==
+
+= 1.1.1 =
+* Fixed a slight output error
 
 = 1.1 =
 * Fixed an error that made users unable to delete downloads.
