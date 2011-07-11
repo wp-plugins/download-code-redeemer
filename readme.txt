@@ -17,11 +17,18 @@ You can create two kinds of codes - single use codes and unlimited use codes.
 
 Download Codes are output as a downloadable CSV file, which makes it very easy to send to printshops for adding to cards or the like.
 
+The redemption form is out via a shortcode.
+
 == Installation ==
 
 1. Install via the plugin manager
 1. Activate plugin via plugin manager
+1. Add the shortcode to any post or page. 
+1. Create and share codes.
+1. ???
+1. Profit!
 
+Attention: Profit is not guaranteed. ;)
 
 == Frequently Asked Questions ==
 
