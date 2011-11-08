@@ -223,21 +223,20 @@ function show_redeemer( $atts ) {
 	if( isset( $_GET["success"] ) ) {
 		switch($_GET["success"]) {
 		case '0':
-			echo "<p>" . stripslashes( $download->failtext ) . "</p>";
+			return "<p>" . stripslashes( $download->failtext ) . "</p>";
 		break;
 		case '1':
-			echo "<p>" . stripslashes( $download->successtext ) . "</p>";
+			return "<p>" . stripslashes( $download->successtext ) . "</p>";
 		break;
 		}
 	} else {
-	?>
-	<form method="post" action="<?php echo $_SERVER["REQUEST_URI"]; ?>" id="dcr-form">
-		<label for="code"><?php echo $download->labeltext; ?></label>
-		<input type="text" name="code" id="code" />
-		<input type="hidden" name="did" id="did" value="<?php echo $atts["download"]; ?>" />
-		<button type="submit">Redeem</button>
-	</form>
-	<?php
+		$output = '<form method="post" action="' . $_SERVER["REQUEST_URI"] . '" id="dcr-form">';
+		$output. = '<label for="code">' . $download->labeltext . '</label>';
+		$output. = '<input type="text" name="code" id="code" />';
+		$output. = '<input type="hidden" name="did" id="did" value="' . $atts["download"] . '" />';
+		$output. = '<button type="submit">Redeem</button>';
+		$output. = '</form>';
+		return $output;
 	}
 		
 }
