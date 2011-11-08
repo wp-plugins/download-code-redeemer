@@ -4,7 +4,7 @@ Donate link: http://tmertz.com/projects/download-code-redeemer
 Tags: download, code, redeemer, redemption, token, url, file, redeem
 Requires at least: 3.1
 Tested up to: 3.2
-Stable tag: 1.1.2
+Stable tag: 1.1.2.1
 
 Simple plugin that enables you to add unlimited use, or single-use download codes for your site.
 
@@ -23,7 +23,7 @@ The redemption form is out via a shortcode.
 
 1. Install via the plugin manager
 1. Activate plugin via plugin manager
-1. Add the shortcode to any post or page. You add the shortcode via **[redeemer]** shorttag.
+1. Add the shortcode to any post or page. You add the shortcode via **[redeemer download="-insert id here-"]** shorttag.
 1. Create and share codes.
 1. ???
 1. Profit!
@@ -42,6 +42,9 @@ None.
 4. Shortcode in WordPress' editor
 
 == Changelog ==
+
+= 1.1.2.1 =
+* Added a little more clarification to the docs.
 
 = 1.1.2 =
 * Fixed another slight output error

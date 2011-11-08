@@ -3,7 +3,7 @@
 Plugin Name: Download Code Redeemer
 Plugin URI: http://tmertz.com/projects/download-code-redeemer/
 Description: A simple plugin designed to make it easy for you to provide download codes for special downloads on your website.
-Version: 1.1.1
+Version: 1.1.2.1
 Author: Thomas Mertz
 Author URI: http://tmertz.com/
 */
