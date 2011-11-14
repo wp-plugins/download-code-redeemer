@@ -3,7 +3,7 @@
 Plugin Name: Download Code Redeemer
 Plugin URI: http://tmertz.com/projects/download-code-redeemer/
 Description: A simple plugin designed to make it easy for you to provide download codes for special downloads on your website.
-Version: 1.1.2.1
+Version: 1.1.2.2
 Author: Thomas Mertz
 Author URI: http://tmertz.com/
 */
@@ -230,12 +230,7 @@ function show_redeemer( $atts ) {
 		break;
 		}
 	} else {
-		$output = '<form method="post" action="' . $_SERVER["REQUEST_URI"] . '" id="dcr-form">';
-		$output. = '<label for="code">' . $download->labeltext . '</label>';
-		$output. = '<input type="text" name="code" id="code" />';
-		$output. = '<input type="hidden" name="did" id="did" value="' . $atts["download"] . '" />';
-		$output. = '<button type="submit">Redeem</button>';
-		$output. = '</form>';
+		$output = '<form method="post" action="' . $_SERVER["REQUEST_URI"] . '" id="dcr-form"><label for="code">' . $download->labeltext . '</label><input type="text" name="code" id="code" /><input type="hidden" name="did" id="did" value="' . $atts["download"] . '" /><button type="submit">Redeem</button></form>';
 		return $output;
 	}
 		
